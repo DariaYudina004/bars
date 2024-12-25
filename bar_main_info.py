@@ -1,9 +1,11 @@
 import time
+import random
+
 import requests  #для работы с запросами через реквест происходит обращение на сайт и уже от туда вытягиваются все даннве
 from bs4 import BeautifulSoup #библиотека разбивает html страницу, делает из нее объекты с которыми мы дальше и будем работать
 import csv # создает csv файл
 
-CSV = 'all main info about bar.csv'
+CSV = 'all_main_info_about_bar.csv'
 HOST = 'https://www.restoclub.ru'
 HEADERS ={
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -33,7 +35,7 @@ def get_content(html,url): #полусение конкретной информ
         else:
             avg_bill= item.find('span', class_='AverageBill_AverageBillTitlePrice__2pz67 text-decoration-underline ml-4 cursor-pointer')
         time_work = item.find('span', class_='WorkingHours_WorkingHoursLink__nnN24')
-        file_menu = HOST + item.find('div', class_='FileMenu_FileMenuList__d0XTq')
+        file_menu = item.find('div', class_='FileMenu_FileMenuList__d0XTq')
         comments = item.find('button', class_ = 'Button_Button__OH_rT RatingOverallCompact_CountButton__GfQkH Button_ButtonVariantLink__5A_tD Button_ButtonSizeMedium__DAxjh Button_ButtonThemeClear___EFgO')
 
         information_about_bars.append(
@@ -45,20 +47,19 @@ def get_content(html,url): #полусение конкретной информ
                 'rating': rating.get_text(strip=True) if rating else 'неизвесно',
                 'avg_bill': avg_bill.get_text(strip=True) if avg_bill else 'неизвесно',
                 'time_work': time_work.get_text(strip=True) if time_work else 'неизвесно',
-                'file_menu': file_menu.find('a').get('href') if file_menu else 'неизвесно',
+                'file_menu': HOST + file_menu.find('a').get('href') if file_menu else 'неизвесно',
                 'comments': comments.get_text(strip=True).replace(' отзыв', '').replace('ов', '').replace('а', '') if comments else 'неизвесно',
             }
         )
-    time.sleep(3)
+
 
     return information_about_bars
 
 def save_document(items, path):
-    with open(path, 'w', newline='') as file:
+    with open(path, 'w', encoding='utf-8', newline='') as file:
         writer = csv.writer(file, delimiter= ';')
-        writer.writerow(['Ссылка на страницу со всей инфой'])
         for item in items:
-            writer.writerow([item['link_bar']])
+            writer.writerow([item['title'],item['address'],item['metro'],item['phone'],item['avg_bill'],item['rating'],item['comments'],item['file_menu'],item['time_work'],])
 
 def read_from_document():
     with open('links_to_bar_info.csv', 'r', newline='') as file:
@@ -71,16 +72,22 @@ def parser():
     read_from_document()
     information_about_bars = []
     for url in range(len(URLS)):
-        html = get_html(URLS[url][0])
-        if html.status_code == 200:
-            print(url)
-            print(f'Пошла жара. Сысыслка номер: {URLS[url][0]}')
-            information_about_bars.extend(get_content(html.text,url ))
-            print(information_about_bars)
-        else:
-            print('Error')
+        try:
+            html = get_html(URLS[url][0])
+            if html.status_code == 200:
+                print(url)
+                print(f'Пошла жара. Сысыслка номер: {URLS[url][0]}')
+                information_about_bars.extend(get_content(html.text,url ))
+                save_document(information_about_bars, CSV)
+            else:
+                print('Ерроре')
+        except Exception as e:
+            print(f'У меня нет времени на ошибки. Я должен работать {URLS[url]}: {e}')
+            continue
+        time.sleep(random.uniform(1, 3))
     print(information_about_bars)
     print('Парсинг закончен')
-    save_document(information_about_bars, CSV)
+
+
 
 parser()
